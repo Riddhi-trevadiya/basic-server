@@ -32,10 +32,13 @@ function getUsers(res) {
     sendJson(res, 200, users);
 }
 
-function getUserById(req, res) {
+function getUserId(req) {
     const parts = req.url.split("/");
-    const id = Number(parts[2]);
+    return Number(parts[2]);
+}
 
+function getUserById(req, res) {
+    const id = getUserId(req);
     const user = users.find(u => u.id === id);
 
     if (!user) {
@@ -68,10 +71,30 @@ function createUser(req, res) {
     });
 }
 
-function deleteUser(req, res) {
-    const parts = req.url.split("/");
-    const id = Number(parts[2]);
+function updateUser(req, res) {
+    let body = "";
 
+    req.on("data", (chunk) => {
+        body += chunk;
+    });
+    req.on("end", () => {
+        const id = getUserId(req);
+        const index = users.findIndex(u => u.id === id);
+        if (index === -1) {
+            sendJson(res, 404, {
+                error: "User Not Found"
+            });
+            return;
+        }
+        const newUser = JSON.parse(body);
+        users[index].name = newUser.name;
+
+        sendJson(res, 200, users[index]);
+    });
+}
+
+function deleteUser(req, res) {
+    const id = getUserId(req);
     const index = users.findIndex(u => u.id === id);
 
     if (index === -1) {
@@ -89,8 +112,7 @@ function deleteUser(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-    console.log(req.url);
-    console.log(req.method);
+    console.log(`${req.method} ${req.url}`);
 
     if (req.url === "/") {
         homeRoute(res);
@@ -103,16 +125,19 @@ const server = http.createServer((req, res) => {
     }
     else if (req.url.startsWith("/users/") && req.method === "GET") {
         getUserById(req, res);
-    } 
+    }
     else if (req.url === "/users" && req.method === "POST") {
         createUser(req, res);
     }
     else if (req.url.startsWith("/users/") && req.method === "DELETE") {
         deleteUser(req, res);
     }
+    else if (req.url.startsWith("/users/") && req.method === "PUT") {
+        updateUser(req, res);
+    }
     else {
 
-          sendJson(res, 404, {
+        sendJson(res, 404, {
             error: "Page Not Found"
         });
     }
